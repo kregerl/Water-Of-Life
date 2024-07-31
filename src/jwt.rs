@@ -39,7 +39,7 @@ pub struct JWKCertificate {
     used_for: String, // What the key is used for ("enc", "sig")
     n: Option<String>, // The modulus value if using RSA
     e: Option<String>, // The exponent value if using RSA
-    x5c: Vec<String>, // The X509 certificate chain - The first entry in the array should always be used for token verification
+    pub x5c: Vec<String>, // The X509 certificate chain - The first entry in the array should always be used for token verification
     x5t: String,      // The X509 thumbprint
     #[serde(rename = "x5t#S256")]
     x5t_hash: String, // The SHA256 hash of the thumbprint
