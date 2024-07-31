@@ -33,6 +33,8 @@ pub enum AuthenticationError {
     ParseError(#[from] url::ParseError),
     #[error("Error storing session data")]
     SessionStorage(#[from] tower_sessions::session::Error),
+    #[error("Error deserializing json.")]
+    Deserialization(#[from] serde_json::Error),
 }
 
 impl IntoResponse for AuthenticationError {
@@ -46,6 +48,7 @@ impl IntoResponse for AuthenticationError {
             Self::HttpError(e) => tracing::error!("{}", e),
             Self::ParseError(e) => tracing::error!("{}", e),
             Self::SessionStorage(e) => tracing::error!("{}", e),
+            Self::Deserialization(e) => tracing::error!("{}", e),
             Self::Unknown => {}
         }
         (
@@ -67,7 +70,7 @@ pub struct OpenidConfiguration {
     token_endpoint: String,
     userinfo_endpoint: String,
     end_session_endpoint: String,
-    jwks_uri: String,
+    pub jwks_uri: String,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -139,12 +142,8 @@ pub async fn token(
     State(state): State<WaterOfLifeState>,
     Query(query_params): Query<AuthCode>,
 ) -> AuthenticationResult<Response> {
-
     let nonce = session.get::<Nonce>(NONCE_SESSION_KEY).await?;
-    tracing::info!(
-        "Session nonce: {:#?}",
-        nonce
-    );
+    tracing::info!("Session nonce: {:#?}", nonce);
 
     tracing::debug!("auth_response: {:#?}", query_params);
     let response = state
@@ -181,11 +180,11 @@ pub async fn token(
         Ok(data) => {
             tracing::debug!("Token is valid: {:?}", data.claims);
             "/"
-        },
+        }
         Err(err) => {
             tracing::debug!("Invalid token: {:?}", err);
             "/login"
-        },
+        }
     };
 
     Ok(Redirect::to(path).into_response())
@@ -218,7 +217,6 @@ fn test() {
     let mut validation = Validation::new(Algorithm::RS256);
     validation.validate_exp = false;
     validation.set_audience(&["wateroflife"]);
-
 
     // Decode the token and get the claims
     let token_data = decode::<KeycloakIDClaims>(&token, &decoding_key, &validation);
