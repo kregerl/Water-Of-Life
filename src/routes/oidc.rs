@@ -1,22 +1,22 @@
 use core::str;
-use std::str::FromStr;
+use std::collections::HashMap;
 
 use axum::{
     extract::{Query, State},
     response::{IntoResponse, Redirect, Response},
     Json,
 };
-use base64::{engine::general_purpose, Engine};
-use jsonwebtoken::{decode, jwk, Algorithm, DecodingKey, Validation};
-use openssl::x509::X509;
-use reqwest::{header::CONTENT_TYPE, StatusCode};
+use reqwest::{header::CONTENT_TYPE, Client, StatusCode};
 use serde::{Deserialize, Serialize};
 use textnonce::TextNonce;
 use thiserror::Error;
 use tower_sessions::Session;
 use url::Url;
 
-use crate::{jwt::KeycloakIDClaims, WaterOfLifeState};
+use crate::{
+    jwt::{verify_jwt, JWKCertificate, KeycloakIDClaims},
+    WaterOfLifeState,
+};
 
 pub const REALM_URL: &'static str = "https://sso.loucaskreger.com/realms/main";
 pub const WELL_KNOWN_CONFIGURATION_ENDPOINT: &'static str = ".well-known/openid-configuration";
@@ -64,6 +64,7 @@ impl IntoResponse for AuthenticationError {
 
 pub type AuthenticationResult<T> = Result<T, AuthenticationError>;
 
+#[allow(unused)]
 #[derive(Clone, Debug, Deserialize)]
 pub struct OpenidConfiguration {
     issuer: String,
@@ -119,6 +120,7 @@ pub async fn logout(State(state): State<WaterOfLifeState>) -> AuthenticationResu
     Ok(())
 }
 
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 pub struct AuthCode {
     session_state: String,
@@ -126,6 +128,7 @@ pub struct AuthCode {
     code: String,
 }
 
+#[allow(unused)]
 #[derive(Debug, Deserialize)]
 struct TokenResponse {
     access_token: String,
@@ -164,32 +167,24 @@ pub async fn token(
     let tokens: TokenResponse = response.json().await?;
     tracing::debug!("Got tokens: {:#?}", tokens);
 
-    let (header_b64, _) = tokens.id_token.split_once(".").unwrap();
-    let header = serde_json::from_slice::<jsonwebtoken::Header>(
-        &general_purpose::STANDARD.decode(header_b64).unwrap(),
-    ).unwrap();
-
-    let jwk = state.jwks.get(algorithm_to_str(&header.alg)).unwrap();
-    let x5c_certificate = &jwk.x5c[0];
-
-    // let x5c_certificate = "MIIClzCCAX8CBgGOoSUh5zANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDARtYWluMB4XDTI0MDQwMjIzMjcyOVoXDTM0MDQwMjIzMjkwOVowDzENMAsGA1UEAwwEbWFpbjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKjaxHqgbDNpnfw3Z+AVnseA+zV9kPwxnmGpQJtxQOTx3kIDRpfIAIlBR1IkkiIktb2PtRWt8b4QvyaU1gjLfEO/9jA9Do6+hAxhB9SC5maSO/TckWXvT7GHBbqlAtemBvR11IiudIfCXNoszUaGdCYwyK6l7fpu2l90sih+9dapEBXKVv/ayoyub7o9mHmXqIsPpqMISR/J2sAIm5RSHsFQhvOkf3QSduaBvBCyN3NVVaSfwSYXDthjKZL3ayYFu+Yx4xumRe2+/HkhHjUTrtCLAHpmrrz2A5ouBIaGtq2wRvoRVFKgl+EAnDdpPx36EteVfSwkFcklgFzjresYD5cCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAG2Wf4pYDBv+yydmPuNf9SKDEBg8UR3a1lkGKuVfSCAvdLg+2aoDldeyG5IuT791KP6J+DgauY5V/uwXFBXReAAeiy6c/DgM5zk8qEUUvSHPlTu4yCs/3bxHEtJuc23/bWuo3eQlcAkJxCxkU+i1oSqkPI8EQz3no6zVtvLAw4OcoKh2XkMPTWpJ3WTPpFQWBIZ7ulj1QUxilMlKUgLQZSydOGHAqbx0NKKvADX1t4jdj/nIIuvPpQf1dL0MVUetSkhc9H70I+FMjXqC+Yp9lpj6eYjqSIyO1cm+XNxNw+fczvtiCMbs5O8g3bt8jM/wCHakIZPuc722B9QfKslFgqg==";
-    let der_cert = general_purpose::STANDARD.decode(x5c_certificate).unwrap();
-    let cert = X509::from_der(&der_cert).unwrap();
-    let public_key = cert.public_key().unwrap();
-    let pem = public_key.public_key_to_pem().unwrap();
-    let decoding_key = DecodingKey::from_rsa_pem(&pem).unwrap();
-
-    let mut validation = Validation::new(header.alg);
-    validation.set_audience(&[state.client_id.as_str()]);
-
-    // Decode the token and get the claims
-    let decode = decode::<KeycloakIDClaims>(&tokens.id_token, &decoding_key, &validation);
-    let token_data = decode;
+    let token_data =
+        verify_jwt::<KeycloakIDClaims>(&tokens.id_token, &state.client_id, &state.jwks);
 
     let path = match token_data {
-        Ok(data) => {
-            tracing::debug!("Token is valid: {:?}", data.claims);
-            "/"
+        Ok(data) if nonce.is_some() => {
+            let nonce = nonce.unwrap();
+            // If nonce doesn't match - the request is invalid
+            if data.claims.common.nonce == nonce.0 {
+                tracing::debug!("Token is valid: {:?}", data.claims);
+                "/"
+            } else {
+                tracing::debug!("Nonce does not match the expected value");
+                "/login"
+            }
+        }
+        Ok(_) => {
+            tracing::debug!("Could not verify nonce it does not exist in session storage.");
+            "/login"
         }
         Err(err) => {
             tracing::debug!("Invalid token: {:?}", err);
@@ -200,56 +195,33 @@ pub async fn token(
     Ok(Redirect::to(path).into_response())
 }
 
-fn algorithm_to_str(algorithm: &Algorithm) -> &str {
-    match algorithm {
-        Algorithm::HS256 => "HS256",
-        Algorithm::HS384 => "HS384",
-        Algorithm::HS512 => "HS512",
-        Algorithm::ES256 => "ES256",
-        Algorithm::ES384 => "ES384",
-        Algorithm::RS256 => "RS256",
-        Algorithm::RS384 => "RS384",
-        Algorithm::PS256 => "PS256",
-        Algorithm::PS384 => "PS384",
-        Algorithm::PS512 => "PS512",
-        Algorithm::RS512 => "RS512",
-        Algorithm::EdDSA => "EdDSA",
-    }
+pub async fn get_well_known_configuration(
+    client: &Client,
+) -> AuthenticationResult<OpenidConfiguration> {
+    Ok(client
+        .get(format!(
+            "{}/{}",
+            REALM_URL, WELL_KNOWN_CONFIGURATION_ENDPOINT
+        ))
+        .send()
+        .await?
+        .json()
+        .await?)
 }
 
-#[test]
-fn test() {
-    let token = "<token>";
-    let x5c_certificate = "MIIClzCCAX8CBgGOoSUh5zANBgkqhkiG9w0BAQsFADAPMQ0wCwYDVQQDDARtYWluMB4XDTI0MDQwMjIzMjcyOVoXDTM0MDQwMjIzMjkwOVowDzENMAsGA1UEAwwEbWFpbjCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAKjaxHqgbDNpnfw3Z+AVnseA+zV9kPwxnmGpQJtxQOTx3kIDRpfIAIlBR1IkkiIktb2PtRWt8b4QvyaU1gjLfEO/9jA9Do6+hAxhB9SC5maSO/TckWXvT7GHBbqlAtemBvR11IiudIfCXNoszUaGdCYwyK6l7fpu2l90sih+9dapEBXKVv/ayoyub7o9mHmXqIsPpqMISR/J2sAIm5RSHsFQhvOkf3QSduaBvBCyN3NVVaSfwSYXDthjKZL3ayYFu+Yx4xumRe2+/HkhHjUTrtCLAHpmrrz2A5ouBIaGtq2wRvoRVFKgl+EAnDdpPx36EteVfSwkFcklgFzjresYD5cCAwEAATANBgkqhkiG9w0BAQsFAAOCAQEAG2Wf4pYDBv+yydmPuNf9SKDEBg8UR3a1lkGKuVfSCAvdLg+2aoDldeyG5IuT791KP6J+DgauY5V/uwXFBXReAAeiy6c/DgM5zk8qEUUvSHPlTu4yCs/3bxHEtJuc23/bWuo3eQlcAkJxCxkU+i1oSqkPI8EQz3no6zVtvLAw4OcoKh2XkMPTWpJ3WTPpFQWBIZ7ulj1QUxilMlKUgLQZSydOGHAqbx0NKKvADX1t4jdj/nIIuvPpQf1dL0MVUetSkhc9H70I+FMjXqC+Yp9lpj6eYjqSIyO1cm+XNxNw+fczvtiCMbs5O8g3bt8jM/wCHakIZPuc722B9QfKslFgqg==";
-    // Decode the base64-encoded certificate to DER format
-    let der_cert = base64::engine::general_purpose::STANDARD
-        .decode(x5c_certificate)
-        .expect("Invalid base64 in x5c");
-
-    // Parse the certificate using openssl
-    let cert = X509::from_der(&der_cert).expect("Failed to parse X509 certificate");
-
-    // Extract the public key from the certificate
-    let public_key = cert.public_key().expect("Failed to extract public key");
-
-    // Convert the public key to PEM format
-    let pem = public_key
-        .public_key_to_pem()
-        .expect("Failed to convert to PEM");
-
-    // Verify the JWT using the extracted public key
-    let decoding_key = DecodingKey::from_rsa_pem(&pem).expect("Invalid PEM key");
-
-    // Validate the token (use proper validation as required)
-    let mut validation = Validation::new(Algorithm::RS256);
-    validation.validate_exp = false;
-    validation.set_audience(&["wateroflife"]);
-
-    // Decode the token and get the claims
-    let token_data = decode::<KeycloakIDClaims>(&token, &decoding_key, &validation);
-
-    match token_data {
-        Ok(data) => println!("Token is valid: {:?}", data.claims),
-        Err(err) => println!("Invalid token: {:?}", err),
-    }
+pub async fn get_jwks(
+    jwks_uri: &str,
+    client: &Client,
+) -> AuthenticationResult<HashMap<String, JWKCertificate>> {
+    let mut response = client
+        .get(jwks_uri)
+        .send()
+        .await?
+        .json::<HashMap<String, serde_json::Value>>()
+        .await?;
+    let keys = response.remove("keys").unwrap();
+    Ok(serde_json::from_value::<Vec<JWKCertificate>>(keys)?
+        .into_iter()
+        .map(|cert| (cert.alg.clone(), cert))
+        .collect::<HashMap<String, JWKCertificate>>())
 }

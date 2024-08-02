@@ -6,9 +6,7 @@ use axum::handler::HandlerWithoutStateExt;
 use axum::{routing::get, Router};
 use jwt::JWKCertificate;
 use reqwest::{Client, StatusCode};
-use routes::oidc::{
-    AuthenticationResult, OpenidConfiguration, REALM_URL, WELL_KNOWN_CONFIGURATION_ENDPOINT,
-};
+use routes::oidc::{get_jwks, get_well_known_configuration, OpenidConfiguration};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use tokio::net::TcpListener;
 use tower_http::services::ServeDir;
@@ -17,8 +15,8 @@ use tower_sessions::cookie::time::Duration;
 use tower_sessions::cookie::SameSite;
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-mod routes;
 mod jwt;
+mod routes;
 
 #[derive(Clone)]
 struct WaterOfLifeState {
@@ -104,37 +102,6 @@ fn create_span(request: &Request) -> tracing::Span {
         .unwrap_or("<unknown>");
 
     tracing::debug_span!("request", %method, %uri, matched_path)
-}
-
-async fn get_well_known_configuration(
-    client: &Client,
-) -> AuthenticationResult<OpenidConfiguration> {
-    Ok(client
-        .get(format!(
-            "{}/{}",
-            REALM_URL, WELL_KNOWN_CONFIGURATION_ENDPOINT
-        ))
-        .send()
-        .await?
-        .json()
-        .await?)
-}
-
-async fn get_jwks(
-    jwks_uri: &str,
-    client: &Client,
-) -> AuthenticationResult<HashMap<String, JWKCertificate>> {
-    let mut response = client
-        .get(jwks_uri)
-        .send()
-        .await?
-        .json::<HashMap<String, serde_json::Value>>()
-        .await?;
-    let keys = response.remove("keys").unwrap();
-    Ok(serde_json::from_value::<Vec<JWKCertificate>>(keys)?
-        .into_iter()
-        .map(|cert| (cert.alg.clone(), cert))
-        .collect::<HashMap<String, JWKCertificate>>())
 }
 
 #[allow(clippy::unused_async)]
