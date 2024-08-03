@@ -14,7 +14,7 @@ use tower_sessions::Session;
 use url::Url;
 
 use crate::{
-    jwt::{verify_jwt, JWKCertificate, KeycloakIDClaims},
+    jwt::{verify_jwt, AppIDClaims, JWKCertificate, KeycloakIDClaims},
     WaterOfLifeState,
 };
 
@@ -176,6 +176,15 @@ pub async fn token(
             // If nonce doesn't match - the request is invalid
             if data.claims.common.nonce == nonce.0 {
                 tracing::debug!("Token is valid: {:?}", data.claims);
+                let app_claims = AppIDClaims::new(&state.client_id, "loucas").unwrap();
+                let app_token = jsonwebtoken::encode(
+                    &jsonwebtoken::Header::default(),
+                    &app_claims,
+                    &jsonwebtoken::EncodingKey::from_secret("secret".as_ref()),
+                )
+                .unwrap();
+                tracing::debug!("Generated new token: {}", app_token);
+                // let user_id = &data.claims.common.sub;
                 "/"
             } else {
                 tracing::debug!("Nonce does not match the expected value");

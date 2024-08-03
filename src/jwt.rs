@@ -1,8 +1,10 @@
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    time::{Duration, SystemTime, SystemTimeError, UNIX_EPOCH},
+};
 
 use base64::{engine::general_purpose, Engine};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, TokenData, Validation};
-use openssl::x509::X509;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use thiserror::Error;
 
@@ -14,13 +16,39 @@ pub struct CommonClaims {
     jti: String,           // JWT Unique ID
     iss: String,           // Issuer
     aud: String,           // Audience
-    sub: String,           // Subject (unique ID per user)
+    pub sub: String,       // Subject (unique ID per user)
     typ: String,           // Type of token
     azp: String,           // Authorized party (CLIENT_ID)
     pub nonce: String,     // Nonce generated in initial request
     session_state: String, // Session State
     acr: String,           // Authentication context class
     sid: String,           // Session ID
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AppIDClaims {
+    aud: String, // Optional. Audience
+    exp: usize, // Required (validate_exp defaults to true in validation). Expiration time (as UTC timestamp)
+    iat: usize, // Optional. Issued at (as UTC timestamp)
+    iss: String, // Optional. Issuer
+    sub: String, // Optional. Subject (whom token refers to)
+}
+
+impl AppIDClaims {
+    pub fn new(aud: &str, sub: &str) -> Result<Self, SystemTimeError> {
+        let time_since_epoch = SystemTime::now().duration_since(UNIX_EPOCH)?;
+        let exp = time_since_epoch
+            .checked_add(Duration::from_secs(60 * 30))
+            .unwrap_or_else(|| time_since_epoch)
+            .as_secs() as usize;
+        Ok(Self {
+            aud: aud.into(),
+            exp,
+            iat: time_since_epoch.as_secs() as usize,
+            iss: "http://localhost:3000".into(),
+            sub: sub.into(),
+        })
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -43,8 +71,8 @@ pub struct JWKCertificate {
     pub alg: String, // Algorithm used
     #[serde(rename = "use")]
     used_for: String, // What the key is used for ("enc", "sig")
-    n: Option<String>, // The modulus value if using RSA
-    e: Option<String>, // The exponent value if using RSA
+    n: String, // The modulus value if using RSA - Might not always exist if using another provider
+    e: String, // The exponent value if using RSA - Might not always exist if using another provider
     pub x5c: Vec<String>, // The X509 certificate chain - The first entry in the array should always be used for token verification
     x5t: String,          // The X509 thumbprint
     #[serde(rename = "x5t#S256")]
@@ -61,8 +89,6 @@ pub enum JwtVerificationError {
     Base64DecodeError(#[from] base64::DecodeError),
     #[error("Error parsing json")]
     JsonParseError(#[from] serde_json::Error),
-    #[error("Error validating constructing X509 certificate")]
-    OpensslError(#[from] openssl::error::ErrorStack),
     #[error("Error validating JWT signature")]
     InvalidSignature(#[from] jsonwebtoken::errors::Error),
 }
@@ -102,7 +128,7 @@ where
     };
 
     let header = serde_json::from_slice::<jsonwebtoken::Header>(
-        &general_purpose::STANDARD.decode(header_b64)?,
+        &general_purpose::STANDARD_NO_PAD.decode(header_b64).unwrap(),
     )?;
 
     let jwk = if let Some(jwk) = jwks.get(algorithm_to_str(&header.alg)) {
@@ -111,16 +137,7 @@ where
         return Err(JwtVerificationError::UnknownAlgorithm);
     };
 
-    // The first certificate in the X509 chain is always used
-    let x5c_certificate = &jwk.x5c[0];
-
-    // Decode the certificate and get the X509 public key
-    let der_cert = general_purpose::STANDARD.decode(x5c_certificate)?;
-    let cert = X509::from_der(&der_cert)?;
-    let public_key = cert.public_key()?;
-    let pem = public_key.public_key_to_pem()?;
-
-    let decoding_key = DecodingKey::from_rsa_pem(&pem)?;
+    let decoding_key = DecodingKey::from_rsa_components(&jwk.n, &jwk.e)?;
     let mut validation = Validation::new(header.alg);
     validation.set_audience(&[audience]);
 

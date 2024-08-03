@@ -44,8 +44,8 @@ async fn main() {
     .await
     .unwrap();
 
-    let client_id = env::var("CLIENT_ID").unwrap();
-    let client_secret = env::var("CLIENT_SECRET").unwrap();
+    let client_id = env::var("CLIENT_ID").expect("Expected the 'CLIENT_ID' environment variable to be set.");
+    let client_secret = env::var("CLIENT_SECRET").expect("Expected the 'CLIENT_SECRET' environment variable to be set.");
 
     let client = Client::new();
 
