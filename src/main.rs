@@ -4,19 +4,20 @@ use std::env;
 use axum::extract::{MatchedPath, Request};
 use axum::handler::HandlerWithoutStateExt;
 use axum::{routing::get, Router};
-use jwt::JWKCertificate;
+use json_web::JWKCertificate;
 use reqwest::{Client, StatusCode};
 use routes::oidc::{get_jwks, get_well_known_configuration, OpenidConfiguration};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use tokio::net::TcpListener;
+use tower_cookies::CookieManagerLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 use tower_sessions::cookie::time::Duration;
 use tower_sessions::cookie::SameSite;
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-mod jwt;
 mod routes;
+mod json_web;
 
 #[derive(Clone)]
 struct WaterOfLifeState {
@@ -25,6 +26,8 @@ struct WaterOfLifeState {
     oidc_configuration: OpenidConfiguration,
     client_id: String,
     client_secret: String,
+    access_token_hmac_secret: String,
+    refresh_token_hmac_secret: String,
     jwks: HashMap<String, JWKCertificate>,
 }
 
@@ -44,8 +47,16 @@ async fn main() {
     .await
     .unwrap();
 
-    let client_id = env::var("CLIENT_ID").expect("Expected the 'CLIENT_ID' environment variable to be set.");
-    let client_secret = env::var("CLIENT_SECRET").expect("Expected the 'CLIENT_SECRET' environment variable to be set.");
+    sqlx::migrate!("./migrations").run(&database).await.unwrap();
+
+    let client_id =
+        env::var("CLIENT_ID").expect("Expected the 'CLIENT_ID' environment variable to be set.");
+    let client_secret = env::var("CLIENT_SECRET")
+        .expect("Expected the 'CLIENT_SECRET' environment variable to be set.");
+    let access_token_hmac_secret = env::var("ACCESS_TOKEN_HMAC_SECRET")
+        .expect("Expected the 'ACCESS_TOKEN_HMAC_SECRET' environment variable to be set.");
+    let refresh_token_hmac_secret = env::var("REFRESH_TOKEN_HMAC_SECRET")
+        .expect("Expected the 'REFRESH_TOKEN_HMAC_SECRET' environment variable to be set.");
 
     let client = Client::new();
 
@@ -60,6 +71,8 @@ async fn main() {
         oidc_configuration,
         client_id,
         client_secret,
+        access_token_hmac_secret,
+        refresh_token_hmac_secret,
         jwks,
     };
 
@@ -75,12 +88,14 @@ async fn main() {
         .route("/oidc/login", get(routes::login))
         .route("/oidc/logout", get(routes::logout))
         .route("/oidc/token", get(routes::token))
+        .route("/api/user_info", get(routes::user_info))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(create_span)
                 .on_failure(()),
         )
         .layer(session_layer)
+        .layer(CookieManagerLayer::new())
         .fallback_service(
             ServeDir::new("./frontend/build").not_found_service(handle_error.into_service()),
         )

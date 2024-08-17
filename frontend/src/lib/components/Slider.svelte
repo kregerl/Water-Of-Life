@@ -39,7 +39,7 @@
     }
 
     .wrapper {
-        margin-top: 100px;
+        /* margin-top: 100px; */
         display: flex;
         flex-direction: row;
     }

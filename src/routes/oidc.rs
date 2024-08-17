@@ -3,18 +3,25 @@ use std::collections::HashMap;
 
 use axum::{
     extract::{Query, State},
+    http::HeaderMap,
     response::{IntoResponse, Redirect, Response},
     Json,
 };
+use jsonwebtoken::TokenData;
 use reqwest::{header::CONTENT_TYPE, Client, StatusCode};
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use sqlx::SqlitePool;
 use textnonce::TextNonce;
 use thiserror::Error;
+use tower_cookies::{cookie::SameSite, Cookie, Cookies};
 use tower_sessions::Session;
 use url::Url;
 
 use crate::{
-    jwt::{verify_jwt, AppIDClaims, JWKCertificate, KeycloakIDClaims},
+    json_web::{
+        generate_access_and_refresh_tokens, verify_jwt, verify_tokens, JWKCertificate,
+        KeycloakIDClaims,
+    },
     WaterOfLifeState,
 };
 
@@ -27,7 +34,9 @@ const REDIRECT_URI: &'static str = "http://localhost:3000/oidc/token";
 #[derive(Error, Debug)]
 pub enum AuthenticationError {
     #[error("Unknown authentication error, try again later")]
-    Unknown,
+    Internal,
+    #[error("Could not authenticate with json web token")]
+    Error(String),
     #[error("Error issuing authentication requests")]
     HttpError(#[from] reqwest::Error),
     #[error("Error formatting URI")]
@@ -45,15 +54,21 @@ impl IntoResponse for AuthenticationError {
             message: String,
         }
 
+        let mut status = StatusCode::INTERNAL_SERVER_ERROR;
+
         match self {
             Self::HttpError(e) => tracing::error!("{}", e),
             Self::ParseError(e) => tracing::error!("{}", e),
             Self::SessionStorage(e) => tracing::error!("{}", e),
             Self::Deserialization(e) => tracing::error!("{}", e),
-            Self::Unknown => {}
+            Self::Internal => {}
+            Self::Error(e) => {
+                tracing::warn!("{}", e);
+                status = StatusCode::UNAUTHORIZED;
+            }
         }
         (
-            StatusCode::INTERNAL_SERVER_ERROR,
+            status,
             Json(ErrorResponse {
                 message: "Please try again later".into(),
             }),
@@ -86,7 +101,7 @@ pub async fn login(
         Ok(nonce) => nonce,
         Err(e) => {
             tracing::error!("{}", e);
-            return Err(AuthenticationError::Unknown);
+            return Err(AuthenticationError::Internal);
         }
     }
     .0;
@@ -110,13 +125,44 @@ pub async fn login(
     Ok(redirect)
 }
 
-pub async fn logout(State(state): State<WaterOfLifeState>) -> AuthenticationResult<()> {
-    // let client = Client::new();
+pub async fn logout(
+    headers: HeaderMap,
+    cookies: Cookies,
+    State(state): State<WaterOfLifeState>,
+) -> AuthenticationResult<()> {
+    tracing::info!("Cookies: {:#?}", cookies.get("wl_id").unwrap().value());
+    let cookie = cookies.get("wl_id").unwrap().value();
+    let client = Client::new();
     // client
     //     .post("https://sso.loucaskreger.com/realms/main/protocol/openid-connect/logout")
-    //     .query(&[("client_id", CLIENT_ID)])
+    //     .query(&[("client_id", "CLIENT_ID")])
     //     .send()
     //     .await;
+    Ok(())
+}
+
+pub async fn user_info(
+    cookies: Cookies,
+    State(state): State<WaterOfLifeState>,
+) -> AuthenticationResult<()> {
+    let access_token_cookie = cookies.get("wl_id").ok_or(AuthenticationError::Error(
+        "Could not find access token.".to_owned(),
+    ))?;
+
+    let refresh_token_cookie = cookies.get("wl_rid").ok_or(AuthenticationError::Error(
+        "Could not find refresh token.".to_owned(),
+    ))?;
+
+    let is_token_valid = verify_tokens(
+        access_token_cookie.value(),
+        refresh_token_cookie.value(),
+        &state,
+    )
+    .await;
+
+    // TODO: Perform database lookup
+
+    // tracing::debug!("user_info: {}", x.claims.sub);
     Ok(())
 }
 
@@ -143,6 +189,7 @@ struct TokenResponse {
 
 pub async fn token(
     session: Session,
+    cookies: Cookies,
     State(state): State<WaterOfLifeState>,
     Query(query_params): Query<AuthCode>,
 ) -> AuthenticationResult<Response> {
@@ -167,67 +214,86 @@ pub async fn token(
     let tokens: TokenResponse = response.json().await?;
     tracing::debug!("Got tokens: {:#?}", tokens);
 
-    let token_data =
-        verify_jwt::<KeycloakIDClaims>(&tokens.id_token, &state.client_id, &state.jwks);
+    let endpoint: &'static str =
+        match verify_jwt::<KeycloakIDClaims>(&tokens.id_token, &state.client_id, &state.jwks) {
+            Ok(token_data) => {
+                let maybe_tokens = generate_access_and_refresh_tokens(
+                    &state.access_token_hmac_secret,
+                    &state.refresh_token_hmac_secret,
+                    &state.client_id,
+                    &token_data.claims.sub,
+                );
 
-    let path = match token_data {
-        Ok(data) if nonce.is_some() => {
-            let nonce = nonce.unwrap();
-            // If nonce doesn't match - the request is invalid
-            if data.claims.common.nonce == nonce.0 {
-                tracing::debug!("Token is valid: {:?}", data.claims);
-                let app_claims = AppIDClaims::new(&state.client_id, "loucas").unwrap();
-                let app_token = jsonwebtoken::encode(
-                    &jsonwebtoken::Header::default(),
-                    &app_claims,
-                    &jsonwebtoken::EncodingKey::from_secret("secret".as_ref()),
-                )
-                .unwrap();
-                tracing::debug!("Generated new token: {}", app_token);
-                // let user_id = &data.claims.common.sub;
-                "/"
-            } else {
-                tracing::debug!("Nonce does not match the expected value");
+                if let Some((access_token, refresh_token)) = maybe_tokens {
+                    let _ = insert_user(&state.database, &token_data).await.unwrap();
+
+                    // FIXME: Replace with axum's CookieJar which must be returned from the handler.
+                    cookies.add(create_token_cookie("wl_id", access_token));
+                    cookies.add(create_token_cookie("wl_rid", refresh_token));
+
+                    "/"
+                } else {
+                    "/login"
+                }
+            }
+            Err(error) => {
+                tracing::info!("{}", error);
                 "/login"
             }
-        }
-        Ok(_) => {
-            tracing::debug!("Could not verify nonce it does not exist in session storage.");
-            "/login"
-        }
-        Err(err) => {
-            tracing::debug!("Invalid token: {:?}", err);
-            "/login"
-        }
-    };
+        };
 
-    Ok(Redirect::to(path).into_response())
+    Ok(Redirect::to(endpoint).into_response())
+}
+
+fn create_token_cookie<'a>(key: &'a str, token: String) -> Cookie<'a> {
+    let mut cookie = Cookie::new(key, token);
+    cookie.set_path("/");
+    cookie.set_secure(true);
+    cookie.set_same_site(SameSite::Lax);
+    cookie.set_http_only(true);
+    cookie
+}
+async fn insert_user(
+    database: &SqlitePool,
+    data: &TokenData<KeycloakIDClaims>,
+) -> AuthenticationResult<()> {
+    let x = sqlx::query_file!(
+        "sql/insert_user.sql",
+        data.claims.sub,
+        data.claims.preferred_username,
+        data.claims.email,
+        1
+    )
+    .execute(database)
+    .await
+    .unwrap();
+
+    Ok(())
+}
+
+async fn get_as_json<T>(client: &Client, url: &str) -> AuthenticationResult<T>
+where
+    T: DeserializeOwned,
+{
+    Ok(client.get(url).send().await?.json::<T>().await?)
 }
 
 pub async fn get_well_known_configuration(
     client: &Client,
 ) -> AuthenticationResult<OpenidConfiguration> {
-    Ok(client
-        .get(format!(
-            "{}/{}",
-            REALM_URL, WELL_KNOWN_CONFIGURATION_ENDPOINT
-        ))
-        .send()
-        .await?
-        .json()
-        .await?)
+    get_as_json(
+        client,
+        &format!("{}/{}", REALM_URL, WELL_KNOWN_CONFIGURATION_ENDPOINT),
+    )
+    .await
 }
 
 pub async fn get_jwks(
     jwks_uri: &str,
     client: &Client,
 ) -> AuthenticationResult<HashMap<String, JWKCertificate>> {
-    let mut response = client
-        .get(jwks_uri)
-        .send()
-        .await?
-        .json::<HashMap<String, serde_json::Value>>()
-        .await?;
+    let mut response = get_as_json::<HashMap<String, serde_json::Value>>(client, jwks_uri).await?;
+
     let keys = response.remove("keys").unwrap();
     Ok(serde_json::from_value::<Vec<JWKCertificate>>(keys)?
         .into_iter()
