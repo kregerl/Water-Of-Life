@@ -6,7 +6,7 @@ use axum::handler::HandlerWithoutStateExt;
 use axum::{routing::get, Router};
 use json_web::JWKCertificate;
 use reqwest::{Client, StatusCode};
-use routes::oidc::{get_jwks, get_well_known_configuration, OpenidConfiguration};
+use services::{get_jwks, get_well_known_configuration, OpenidConfiguration};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use tokio::net::TcpListener;
 use tower_cookies::CookieManagerLayer;
@@ -16,7 +16,7 @@ use tower_sessions::cookie::time::Duration;
 use tower_sessions::cookie::SameSite;
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-mod routes;
+mod services;
 mod json_web;
 
 #[derive(Clone)]
@@ -85,10 +85,10 @@ async fn main() {
         .with_expiry(tower_sessions::Expiry::OnInactivity(Duration::minutes(2)));
 
     let app = Router::new()
-        .route("/oidc/login", get(routes::login))
-        .route("/oidc/logout", get(routes::logout))
-        .route("/oidc/token", get(routes::token))
-        .route("/api/user_info", get(routes::user_info))
+        .route("/oidc/login", get(services::login))
+        .route("/oidc/logout", get(services::logout))
+        .route("/oidc/token", get(services::token))
+        .route("/api/user_info", get(services::user_info))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(create_span)

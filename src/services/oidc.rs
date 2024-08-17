@@ -20,7 +20,7 @@ use url::Url;
 use crate::{
     json_web::{
         generate_access_and_refresh_tokens, verify_jwt, verify_tokens, JWKCertificate,
-        KeycloakIDClaims,
+        KeycloakIDClaims, TokenState,
     },
     WaterOfLifeState,
 };
@@ -138,31 +138,6 @@ pub async fn logout(
     //     .query(&[("client_id", "CLIENT_ID")])
     //     .send()
     //     .await;
-    Ok(())
-}
-
-pub async fn user_info(
-    cookies: Cookies,
-    State(state): State<WaterOfLifeState>,
-) -> AuthenticationResult<()> {
-    let access_token_cookie = cookies.get("wl_id").ok_or(AuthenticationError::Error(
-        "Could not find access token.".to_owned(),
-    ))?;
-
-    let refresh_token_cookie = cookies.get("wl_rid").ok_or(AuthenticationError::Error(
-        "Could not find refresh token.".to_owned(),
-    ))?;
-
-    let is_token_valid = verify_tokens(
-        access_token_cookie.value(),
-        refresh_token_cookie.value(),
-        &state,
-    )
-    .await;
-
-    // TODO: Perform database lookup
-
-    // tracing::debug!("user_info: {}", x.claims.sub);
     Ok(())
 }
 

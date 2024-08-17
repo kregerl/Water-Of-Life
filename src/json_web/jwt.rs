@@ -8,6 +8,10 @@ use crate::WaterOfLifeState;
 
 use super::jwk::verfy_jwt_hmac;
 
+trait Claim {
+    fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self;
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct RefreshTokenClaims {
     #[serde(flatten)]
@@ -15,8 +19,8 @@ pub struct RefreshTokenClaims {
     version: i64,
 }
 
-impl RefreshTokenClaims {
-    pub fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self {
+impl Claim for RefreshTokenClaims {
+    fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self {
         Self {
             common: TokenClaims::new(aud, sub, expiration),
             version: 1,
@@ -33,8 +37,8 @@ pub struct TokenClaims {
     pub sub: String, // Optional. Subject (whom token refers to)
 }
 
-impl TokenClaims {
-    pub fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self {
+impl Claim for TokenClaims {
+    fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self {
         Self {
             aud: aud.into(),
             exp: expiration.expires_at,
@@ -79,7 +83,7 @@ pub async fn verify_tokens(
     ) {
         let maybe_user = sqlx::query_file_as!(
             User,
-            "sql/select_user_refresh_token_version.sql",
+            "sql/select_user.sql",
             refresh_token_claims.claims.common.sub
         )
         .fetch_one(&state.database)
@@ -98,15 +102,18 @@ pub async fn verify_tokens(
     TokenState::Invalid
 }
 
-fn generate_token(
+fn generate_token<T>(
     secret: &str,
     client_id: &str,
     subject: &str,
     expires_in: Duration,
-) -> Option<String> {
+) -> Option<String>
+where
+    T: Claim + Serialize,
+{
     let token_encoding_key = EncodingKey::from_secret(secret.as_bytes());
     let token_expiration = calculate_expiration(expires_in).ok()?;
-    let token_claims = TokenClaims::new(client_id, subject, token_expiration.clone());
+    let token_claims = T::new(client_id, subject, token_expiration.clone());
     jsonwebtoken::encode(&Header::default(), &token_claims, &token_encoding_key).ok()
 }
 
@@ -116,7 +123,7 @@ pub fn generate_access_and_refresh_tokens(
     client_id: &str,
     subject: &str,
 ) -> Option<(String, String)> {
-    let access_token = generate_token(
+    let access_token = generate_token::<TokenClaims>(
         access_token_secret,
         client_id,
         subject,
@@ -124,7 +131,7 @@ pub fn generate_access_and_refresh_tokens(
     )?;
     tracing::debug!("Generated access token: {}", access_token);
 
-    let refresh_token = generate_token(
+    let refresh_token = generate_token::<RefreshTokenClaims>(
         refresh_token_secret,
         client_id,
         subject,
@@ -135,15 +142,14 @@ pub fn generate_access_and_refresh_tokens(
     Some((access_token, refresh_token))
 }
 
-
 #[derive(Debug, Clone)]
-struct JWTExpiration<T> {
+pub struct JWTExpiration<T> {
     pub issued_at: T,
     pub expires_at: T,
 }
 
 /// Returns a tuple of (iat, exp).
-fn calculate_expiration(expires_in: Duration) -> Result<JWTExpiration<usize>, SystemTimeError> {
+pub fn calculate_expiration(expires_in: Duration) -> Result<JWTExpiration<usize>, SystemTimeError> {
     let time_since_epoch = SystemTime::now().duration_since(UNIX_EPOCH)?;
     let exp = time_since_epoch
         .checked_add(expires_in)

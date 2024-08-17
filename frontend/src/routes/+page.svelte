@@ -28,6 +28,8 @@
         fetch("/api/user_info").then((response) => {
             if (response.status === 401) {
                 goto("/login");
+            } else {
+                console.log('user_info', response);
             }
         });
     });

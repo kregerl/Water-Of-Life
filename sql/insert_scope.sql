@@ -1,0 +1,2 @@
+INSERT INTO scopes(scope)
+VALUES (?) ON CONFLICT(scope) DO NOTHING;

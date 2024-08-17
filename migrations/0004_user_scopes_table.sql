@@ -1,0 +1,5 @@
+CREATE TABLE IF NOT EXISTS user_scopes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,    
+    scope_id INTEGER NOT NULL
+);
