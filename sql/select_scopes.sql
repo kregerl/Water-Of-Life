@@ -1,6 +1,3 @@
-SELECT user_id,
-    preferred_username,
-    email,
-    refresh_token_version
-FROM users
-WHERE user_id = ?;
+SELECT uts.scope
+FROM user_to_scopes uts
+WHERE uts.user_id = $1;

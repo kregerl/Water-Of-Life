@@ -79,9 +79,7 @@ fn algorithm_to_str(algorithm: &Algorithm) -> &str {
 
 fn parse_header(jwt: &str) -> VerificationResult<jsonwebtoken::Header> {
     // JWTs without '.'s are not valid
-    let header_b64 = if let Some((header_b64, _)) = jwt.split_once(".") {
-        header_b64
-    } else {
+    let Some((header_b64, _)) = jwt.split_once(".") else {
         return Err(VerificationError::InvalidJwtFormat);
     };
 
@@ -116,9 +114,7 @@ where
 {
     let header = parse_header(jwt)?;
 
-    let jwk = if let Some(jwk) = jwks.get(algorithm_to_str(&header.alg)) {
-        jwk
-    } else {
+    let Some(jwk) = jwks.get(algorithm_to_str(&header.alg)) else {
         return Err(VerificationError::UnknownAlgorithm);
     };
 

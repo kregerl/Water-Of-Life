@@ -1,55 +1,70 @@
 use axum::{
-    extract::{Query, State}, response::{IntoResponse, Redirect, Response}, Json
+    extract::{Query, State},
+    response::{IntoResponse, Response},
+    Extension, Json,
 };
-use serde::Deserialize;
+use futures::TryStreamExt;
+use reqwest::StatusCode;
+use serde::{Deserialize, Serialize};
+use sqlx::SqlitePool;
+use thiserror::Error;
 use tower_cookies::Cookies;
 
-use crate::{
-    json_web::{verify_tokens, TokenState},
-    WaterOfLifeState,
-};
+use crate::{json_web::User, WaterOfLifeState};
 
-use super::oidc::{AuthenticationError, AuthenticationResult};
-
-async fn validate_cookies(
-    cookies: Cookies,
-    state: &WaterOfLifeState,
-) -> AuthenticationResult<TokenState> {
-    let access_token_cookie = cookies.get("wl_id").ok_or(AuthenticationError::Error(
-        "Could not find access token.".to_owned(),
-    ))?;
-
-    let refresh_token_cookie = cookies.get("wl_rid").ok_or(AuthenticationError::Error(
-        "Could not find refresh token.".to_owned(),
-    ))?;
-
-    Ok(verify_tokens(
-        access_token_cookie.value(),
-        refresh_token_cookie.value(),
-        &state,
-    )
-    .await)
+#[derive(Error, Debug)]
+pub enum WebError {
+    #[error("Error quering database")]
+    Database(#[from] sqlx::Error),
+    #[error("Error serializing struct.")]
+    Json(#[from] serde_json::Error),
 }
-// TODO: Create a new error type for these `WebError/WebResult`
+
+impl IntoResponse for WebError {
+    fn into_response(self) -> Response {
+        let message = match self {
+            WebError::Database(e) => e.to_string(),
+            WebError::Json(e) => e.to_string(),
+        };
+        tracing::warn!("{}", message);
+        StatusCode::INTERNAL_SERVER_ERROR.into_response()
+    }
+}
+
+pub type WebResult<T> = Result<T, WebError>;
+
+#[derive(Debug, Serialize)]
+struct UserInfo {
+    username: String,
+    role: String,
+    scopes: Vec<String>,
+}
+
+async fn get_scopes(pool: &SqlitePool, user_id: &str) -> sqlx::Result<Vec<String>> {
+    let mut rows = sqlx::query_file!("sql/select_scopes.sql", user_id).fetch(pool);
+
+    let mut scopes = Vec::new();
+    while let Some(row) = rows.try_next().await? {
+        tracing::info!("user_info: {}", row.scope);
+        scopes.push(row.scope);
+    }
+
+    Ok(scopes)
+}
+
 pub async fn user_info(
-    cookies: Cookies,
     State(state): State<WaterOfLifeState>,
-) -> AuthenticationResult<Response> {
-    let is_token_valid = validate_cookies(cookies, &state).await?;
+    Extension(user): Extension<User>,
+) -> WebResult<Response> {
+    let scopes = get_scopes(&state.database, &user.user_id).await?;
 
-    let user_id = match is_token_valid {
-        TokenState::Valid(user_id) => user_id,
-        TokenState::RequiresRefresh(user_id, _user) => user_id,
-        TokenState::Invalid => {
-            return Ok(Redirect::to("/login").into_response())
-        }
-    };
+    let json = serde_json::to_string(&UserInfo {
+        username: user.preferred_username,
+        role: user.role,
+        scopes,
+    })?;
 
-
-    // TODO: Perform database lookup
-
-    // tracing::debug!("user_info: {}", x.claims.sub);
-    Ok("".into_response())
+    Ok(json.into_response())
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,7 +76,7 @@ pub fn search_spirit(
     cookies: Cookies,
     State(state): State<WaterOfLifeState>,
     Query(query_params): Query<SearchParameter>,
-) -> AuthenticationResult<()> {
+) -> WebResult<()> {
     todo!("search_spirit");
 }
 
@@ -71,14 +86,14 @@ struct SpiritPayload {
     distiller: String,
     description: String,
     abv: f64,
-    image: Vec<u8>
+    image: Vec<u8>,
 }
 
 pub fn add_spirit(
     cookies: Cookies,
     State(state): State<WaterOfLifeState>,
     Json(payload): Json<SpiritPayload>,
-) -> AuthenticationResult<()> {
+) -> WebResult<()> {
     todo!("add_spirit");
 }
 
@@ -86,6 +101,6 @@ pub fn edit_spirit(
     cookies: Cookies,
     State(state): State<WaterOfLifeState>,
     Json(payload): Json<SpiritPayload>,
-) -> AuthenticationResult<()> {
+) -> WebResult<()> {
     todo!("edit_spirit");
 }

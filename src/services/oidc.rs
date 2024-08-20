@@ -9,7 +9,7 @@ use axum::{
 };
 use jsonwebtoken::TokenData;
 use reqwest::{header::CONTENT_TYPE, Client, StatusCode};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Deserializer, Serialize};
 use sqlx::SqlitePool;
 use textnonce::TextNonce;
 use thiserror::Error;
@@ -18,12 +18,15 @@ use tower_sessions::Session;
 use url::Url;
 
 use crate::{
-    json_web::{
+    cookie::create_token_cookie, json_web::{
         generate_access_and_refresh_tokens, verify_jwt, verify_tokens, JWKCertificate,
         KeycloakIDClaims, TokenState,
-    },
-    WaterOfLifeState,
+    }, WaterOfLifeState
 };
+
+pub const KEYCLOAK_ADMIN_ROLE: &'static str = "wol-admin";
+pub const APP_ADMIN_ROLE: &'static str = "admin";
+pub const APP_USER_ROLE: &'static str = "user";
 
 pub const REALM_URL: &'static str = "https://sso.loucaskreger.com/realms/main";
 pub const WELL_KNOWN_CONFIGURATION_ENDPOINT: &'static str = ".well-known/openid-configuration";
@@ -35,8 +38,6 @@ const REDIRECT_URI: &'static str = "http://localhost:3000/oidc/token";
 pub enum AuthenticationError {
     #[error("Unknown authentication error, try again later")]
     Internal,
-    #[error("Could not authenticate with json web token")]
-    Error(String),
     #[error("Error issuing authentication requests")]
     HttpError(#[from] reqwest::Error),
     #[error("Error formatting URI")]
@@ -62,10 +63,6 @@ impl IntoResponse for AuthenticationError {
             Self::SessionStorage(e) => tracing::error!("{}", e),
             Self::Deserialization(e) => tracing::error!("{}", e),
             Self::Internal => {}
-            Self::Error(e) => {
-                tracing::warn!("{}", e);
-                status = StatusCode::UNAUTHORIZED;
-            }
         }
         (
             status,
@@ -141,6 +138,58 @@ pub async fn logout(
     Ok(())
 }
 
+#[derive(Debug, Deserialize)]
+struct KeycloakUserInfo {
+    sub: String,
+    #[serde(rename = "resource_access")]
+    #[serde(deserialize_with = "as_app_roles")]
+    roles: Vec<String>,
+    email_verified: bool,
+    name: String,
+    preferred_username: String,
+    given_name: String,
+    family_name: String,
+    email: String,
+}
+
+fn as_app_roles<'de, D>(deserializer: D) -> Result<Vec<String>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let resource_access: HashMap<String, HashMap<String, Vec<String>>> =
+        Deserialize::deserialize(deserializer)?;
+
+    let client_id = std::env::var("CLIENT_ID")
+        .expect("Expected the 'CLIENT_ID' environment variable to be set.");
+
+    Ok(match extract_roles(resource_access, &client_id) {
+        Some(roles) => roles,
+        None => Vec::new(),
+    })
+}
+
+fn extract_roles(
+    mut resources: HashMap<String, HashMap<String, Vec<String>>>,
+    client_id: &str,
+) -> Option<Vec<String>> {
+    let mut role_map = resources.remove(client_id)?;
+    role_map.remove("roles")
+}
+
+async fn user_info(
+    client: &Client,
+    userinfo_endpoint: &str,
+    keycloak_access_token: &str,
+) -> AuthenticationResult<KeycloakUserInfo> {
+    let response = client
+        .get(userinfo_endpoint)
+        .bearer_auth(keycloak_access_token)
+        .send()
+        .await?;
+
+    Ok(response.json().await?)
+}
+
 #[allow(unused)]
 #[derive(Debug, Deserialize)]
 pub struct AuthCode {
@@ -192,15 +241,29 @@ pub async fn token(
     let endpoint: &'static str =
         match verify_jwt::<KeycloakIDClaims>(&tokens.id_token, &state.client_id, &state.jwks) {
             Ok(token_data) => {
+                let role = match user_info(
+                    &state.client,
+                    &state.oidc_configuration.userinfo_endpoint,
+                    &tokens.access_token,
+                )
+                .await
+                {
+                    Ok(user_info) if user_info.roles.contains(&KEYCLOAK_ADMIN_ROLE.to_owned()) => {
+                        APP_ADMIN_ROLE
+                    }
+                    _ => APP_USER_ROLE,
+                };
+
                 let maybe_tokens = generate_access_and_refresh_tokens(
                     &state.access_token_hmac_secret,
                     &state.refresh_token_hmac_secret,
                     &state.client_id,
                     &token_data.claims.sub,
+                    role,
                 );
 
                 if let Some((access_token, refresh_token)) = maybe_tokens {
-                    let _ = insert_user(&state.database, &token_data).await.unwrap();
+                    let _ = insert_user(&state.database, &token_data, role).await.unwrap();
 
                     // FIXME: Replace with axum's CookieJar which must be returned from the handler.
                     cookies.add(create_token_cookie("wl_id", access_token));
@@ -220,24 +283,18 @@ pub async fn token(
     Ok(Redirect::to(endpoint).into_response())
 }
 
-fn create_token_cookie<'a>(key: &'a str, token: String) -> Cookie<'a> {
-    let mut cookie = Cookie::new(key, token);
-    cookie.set_path("/");
-    cookie.set_secure(true);
-    cookie.set_same_site(SameSite::Lax);
-    cookie.set_http_only(true);
-    cookie
-}
 async fn insert_user(
     database: &SqlitePool,
     data: &TokenData<KeycloakIDClaims>,
+    role: &str,
 ) -> AuthenticationResult<()> {
     let x = sqlx::query_file!(
         "sql/insert_user.sql",
         data.claims.sub,
         data.claims.preferred_username,
         data.claims.email,
-        1
+        1,
+        role
     )
     .execute(database)
     .await

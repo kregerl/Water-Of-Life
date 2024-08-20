@@ -7,6 +7,7 @@
     import NewPostModal from "$lib/modal/NewPostModal.svelte";
 
     let isModalOpen: boolean = false;
+    let showAdmin: boolean = false;
 
     let value: string;
 
@@ -24,14 +25,23 @@
         isModalOpen = false;
     }
 
-    onMount(() => {
-        fetch("/api/user_info").then((response) => {
-            if (response.status === 401) {
-                goto("/login");
-            } else {
-                console.log('user_info', response);
+    type User = {
+        username: string;
+        role: string;
+        scopes: string[];
+    };
+
+    onMount(async () => {
+        const response = await fetch("/api/user_info");
+        if (response.status != 200) {
+            goto("/login");
+        } else {
+            const json = (await response.json()) as User;
+            console.log("user_info:", json);
+            if (json.role === "admin") {
+                showAdmin = true;
             }
-        });
+        }
     });
 </script>
 
@@ -56,11 +66,14 @@
     </ul>
 </div>
 
-<button class="post" on:click={() => isModalOpen = true}>New Post</button>
+<button class="post" on:click={() => (isModalOpen = true)}>New Post</button>
 {#if isModalOpen}
-    <NewPostModal on:close={closeModal}/>
+    <NewPostModal on:close={closeModal} />
 {/if}
 
+{#if showAdmin}
+    <button on:click={() => goto("/admin")}>Admin!</button>
+{/if}
 
 <style>
     :global(body) {

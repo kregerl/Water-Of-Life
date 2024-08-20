@@ -1,0 +1,20 @@
+{
+  "db_name": "SQLite",
+  "query": "SELECT uts.scope\nFROM user_to_scopes uts\nWHERE uts.user_id = $1;",
+  "describe": {
+    "columns": [
+      {
+        "name": "scope",
+        "ordinal": 0,
+        "type_info": "Text"
+      }
+    ],
+    "parameters": {
+      "Right": 1
+    },
+    "nullable": [
+      false
+    ]
+  },
+  "hash": "bc3c905e814d686f1e57f6b01e94993356945a338d6307e74a6e5f08e04dc7e4"
+}

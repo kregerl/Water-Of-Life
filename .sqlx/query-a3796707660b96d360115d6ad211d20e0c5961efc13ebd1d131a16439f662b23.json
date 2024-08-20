@@ -1,6 +1,6 @@
 {
   "db_name": "SQLite",
-  "query": "SELECT user_id,\n    preferred_username,\n    email,\n    refresh_token_version\nFROM users\nWHERE user_id = ?;",
+  "query": "SELECT user_id,\n    preferred_username,\n    email,\n    refresh_token_version,\n    role\nFROM users\nWHERE user_id = ?;",
   "describe": {
     "columns": [
       {
@@ -22,6 +22,11 @@
         "name": "refresh_token_version",
         "ordinal": 3,
         "type_info": "Integer"
+      },
+      {
+        "name": "role",
+        "ordinal": 4,
+        "type_info": "Text"
       }
     ],
     "parameters": {
@@ -31,8 +36,9 @@
       false,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "d14e55f3f1530d9f986c742ffb846e15f848ae24e504a6216bd8e89c18ebd704"
+  "hash": "a3796707660b96d360115d6ad211d20e0c5961efc13ebd1d131a16439f662b23"
 }

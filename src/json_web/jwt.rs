@@ -9,27 +9,11 @@ use crate::WaterOfLifeState;
 use super::jwk::verfy_jwt_hmac;
 
 trait Claim {
-    fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self;
+    fn new(aud: &str, sub: &str, role: &str, expiration: JWTExpiration<usize>) -> Self;
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RefreshTokenClaims {
-    #[serde(flatten)]
-    common: TokenClaims,
-    version: i64,
-}
-
-impl Claim for RefreshTokenClaims {
-    fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self {
-        Self {
-            common: TokenClaims::new(aud, sub, expiration),
-            version: 1,
-        }
-    }
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-pub struct TokenClaims {
+pub struct CommonClaims {
     aud: String,     // Optional. Audience
     exp: usize, // Required (validate_exp defaults to true in validation). Expiration time (as UTC timestamp)
     iat: usize, // Optional. Issued at (as UTC timestamp)
@@ -37,7 +21,7 @@ pub struct TokenClaims {
     pub sub: String, // Optional. Subject (whom token refers to)
 }
 
-impl Claim for TokenClaims {
+impl CommonClaims {
     fn new(aud: &str, sub: &str, expiration: JWTExpiration<usize>) -> Self {
         Self {
             aud: aud.into(),
@@ -49,18 +33,53 @@ impl Claim for TokenClaims {
     }
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RefreshTokenClaims {
+    #[serde(flatten)]
+    common: CommonClaims,
+    version: i64,
+}
+
+impl Claim for RefreshTokenClaims {
+    fn new(aud: &str, sub: &str, _role: &str, expiration: JWTExpiration<usize>) -> Self {
+        Self {
+            common: CommonClaims::new(aud, sub, expiration),
+            version: 1,
+        }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct AccessTokenClaims {
+    #[serde(flatten)]
+    common: CommonClaims,
+    role: String,
+    additional_scopes: Vec<String>,
+}
+
+impl Claim for AccessTokenClaims {
+    fn new(aud: &str, sub: &str, role: &str, expiration: JWTExpiration<usize>) -> Self {
+        Self {
+            common: CommonClaims::new(aud, sub, expiration),
+            role: role.to_owned(),
+            additional_scopes: Vec::new(),
+        }
+    }
+}
+
 pub enum TokenState {
     Valid(String),
     Invalid,
     RequiresRefresh(String, User),
 }
 
-#[derive(Debug, FromRow)]
+#[derive(Debug, FromRow, Clone)]
 pub struct User {
     pub user_id: String,
     pub preferred_username: String,
     pub email: String,
     pub refresh_token_version: i64,
+    pub role: String,
 }
 
 pub async fn verify_tokens(
@@ -68,12 +87,12 @@ pub async fn verify_tokens(
     refresh_token: &str,
     state: &WaterOfLifeState,
 ) -> TokenState {
-    if let Ok(access_token_claims) = verfy_jwt_hmac::<TokenClaims>(
+    if let Ok(access_token_claims) = verfy_jwt_hmac::<AccessTokenClaims>(
         access_token,
         &state.client_id,
         &state.access_token_hmac_secret,
     ) {
-        return TokenState::Valid(access_token_claims.claims.sub);
+        return TokenState::Valid(access_token_claims.claims.common.sub);
     }
 
     if let Ok(refresh_token_claims) = verfy_jwt_hmac::<RefreshTokenClaims>(
@@ -106,6 +125,7 @@ fn generate_token<T>(
     secret: &str,
     client_id: &str,
     subject: &str,
+    role: &str,
     expires_in: Duration,
 ) -> Option<String>
 where
@@ -113,7 +133,7 @@ where
 {
     let token_encoding_key = EncodingKey::from_secret(secret.as_bytes());
     let token_expiration = calculate_expiration(expires_in).ok()?;
-    let token_claims = T::new(client_id, subject, token_expiration.clone());
+    let token_claims = T::new(client_id, subject, role, token_expiration.clone());
     jsonwebtoken::encode(&Header::default(), &token_claims, &token_encoding_key).ok()
 }
 
@@ -122,11 +142,13 @@ pub fn generate_access_and_refresh_tokens(
     refresh_token_secret: &str,
     client_id: &str,
     subject: &str,
+    role: &str
 ) -> Option<(String, String)> {
-    let access_token = generate_token::<TokenClaims>(
+    let access_token = generate_token::<AccessTokenClaims>(
         access_token_secret,
         client_id,
         subject,
+        role,
         Duration::from_secs(60 * 30),
     )?;
     tracing::debug!("Generated access token: {}", access_token);
@@ -135,6 +157,7 @@ pub fn generate_access_and_refresh_tokens(
         refresh_token_secret,
         client_id,
         subject,
+        role,
         Duration::from_secs(60 * 60 * 24 * 30),
     )?;
     tracing::debug!("Generated refresh token: {}", refresh_token);

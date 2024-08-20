@@ -1,23 +1,21 @@
 use std::collections::HashMap;
 use std::env;
 
-use axum::extract::{MatchedPath, Request};
 use axum::handler::HandlerWithoutStateExt;
 use axum::{routing::get, Router};
 use json_web::JWKCertificate;
-use reqwest::{Client, StatusCode};
+use reqwest::Client;
 use services::{get_jwks, get_well_known_configuration, OpenidConfiguration};
 use sqlx::{sqlite::SqliteConnectOptions, SqlitePool};
 use tokio::net::TcpListener;
 use tower_cookies::CookieManagerLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
-use tower_sessions::cookie::time::Duration;
-use tower_sessions::cookie::SameSite;
-use tower_sessions::{MemoryStore, SessionManagerLayer};
 
-mod services;
 mod json_web;
+mod middleware;
+mod services;
+mod cookie;
 
 #[derive(Clone)]
 struct WaterOfLifeState {
@@ -76,50 +74,28 @@ async fn main() {
         jwks,
     };
 
-    // Probably fine to store nonces in memory for now since theyre 32 bytes each
-    let session_store = MemoryStore::default();
-    let session_layer = SessionManagerLayer::new(session_store)
-        .with_same_site(SameSite::Lax)
-        // FIXME: This should be removed once the web server is running HTTPS
-        .with_secure(false)
-        .with_expiry(tower_sessions::Expiry::OnInactivity(Duration::minutes(2)));
-
     let app = Router::new()
         .route("/oidc/login", get(services::login))
         .route("/oidc/logout", get(services::logout))
         .route("/oidc/token", get(services::token))
         .route("/api/user_info", get(services::user_info))
+        .route_layer(axum::middleware::from_fn_with_state(state.clone(), middleware::authentication))
         .layer(
             TraceLayer::new_for_http()
-                .make_span_with(create_span)
+                .make_span_with(middleware::create_span)
                 .on_failure(()),
         )
-        .layer(session_layer)
+        .layer(middleware::session_layer())
         .layer(CookieManagerLayer::new())
         .fallback_service(
-            ServeDir::new("./frontend/build").not_found_service(handle_error.into_service()),
+            ServeDir::new("./frontend/build")
+                .not_found_service(middleware::handle_error.into_service()),
         )
+        // TODO: Make some authentication middleware
+        // https://docs.rs/axum/latest/axum/middleware/index.html#passing-state-from-middleware-to-handlers
         .with_state(state);
 
     let listener = TcpListener::bind("0.0.0.0:3000").await.unwrap();
     tracing::debug!("listening on {}", listener.local_addr().unwrap());
     axum::serve(listener, app).await.unwrap();
-}
-
-fn create_span(request: &Request) -> tracing::Span {
-    let method = request.method();
-    let uri = request.uri();
-
-    let matched_path = request
-        .extensions()
-        .get::<MatchedPath>()
-        .map(|matched_path| matched_path.as_str())
-        .unwrap_or("<unknown>");
-
-    tracing::debug_span!("request", %method, %uri, matched_path)
-}
-
-#[allow(clippy::unused_async)]
-async fn handle_error() -> (StatusCode, &'static str) {
-    (StatusCode::NOT_FOUND, "That endpoint does not exist.")
 }
