@@ -1,0 +1,518 @@
+{
+    "size": 57,
+    "liquer": [
+        {
+            "title": "Amaro Montenegro",
+            "permalink": "https://bottleraiders.com/spirit/amaro-montenegro/",
+            "publish_date": "2024 06-24",
+            "rating": "95",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Amaro Nonino Quintessentia",
+            "permalink": "https://bottleraiders.com/spirit/amaro-nonino-quintessentia/",
+            "publish_date": "2024 06-24",
+            "rating": "93",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Amarula Cream Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/amarula-cream-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "90",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Ancho Reyes Barrica Chile Ancho Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/ancho-reyes-barrica-chile-ancho-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "90",
+            "rank": "",
+            "price": 3,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Ancho Reyes Chile Ancho Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/ancho-reyes-chile-ancho-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "94",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Ancho Reyes Verde Chile Poblano Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/ancho-reyes-verde-chile-poblano-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "89",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Aperol Aperitivo",
+            "permalink": "https://bottleraiders.com/spirit/aperol-aperitivo/",
+            "publish_date": "2024 06-24",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Baileys The Original Irish Cream",
+            "permalink": "https://bottleraiders.com/spirit/baileys-the-original-irish-cream/",
+            "publish_date": "2024 06-24",
+            "rating": "84",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Belle de Brillet Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/belle-de-brillet-liqueur/",
+            "publish_date": "2024 07-12",
+            "rating": "93",
+            "rank": "",
+            "price": 2,
+            "type": "Fruit Liqueur"
+        },
+        {
+            "title": "BENDT Bourbon Cream",
+            "permalink": "https://bottleraiders.com/spirit/bendt-bourbon-cream/",
+            "publish_date": "2024 08-26",
+            "rating": "",
+            "rank": "",
+            "price": 1,
+            "type": "Cream Liqueur"
+        },
+        {
+            "title": "Bonanto",
+            "permalink": "https://bottleraiders.com/spirit/bonanto/",
+            "publish_date": "2024 06-25",
+            "rating": "",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Bumbu Crème",
+            "permalink": "https://bottleraiders.com/spirit/bumbu-creme/",
+            "publish_date": "2024 07-22",
+            "rating": "89",
+            "rank": "",
+            "price": 1,
+            "type": "Cream Liqueur"
+        },
+        {
+            "title": "Burnt Church Bourbon Cream Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/burnt-church-bourbon-cream-liqueur/",
+            "publish_date": "2024 08-28",
+            "rating": "",
+            "rank": "",
+            "price": 2,
+            "type": "Cream Liqueur"
+        },
+        {
+            "title": "Campari",
+            "permalink": "https://bottleraiders.com/spirit/campari/",
+            "publish_date": "2024 06-24",
+            "rating": "93",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Cenote Green Orange Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/cenote-green-orange-liqueur/",
+            "publish_date": "2024 08-06",
+            "rating": "83",
+            "rank": "",
+            "price": 3,
+            "type": "Fruit Liqueur"
+        },
+        {
+            "title": "Chambord Black Raspberry Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/chambord-black-raspberry-liqueur/",
+            "publish_date": "2024 06-21",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Chemist Chocolate Orange Gin Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/chemist-chocolate-orange-gin-liqueur/",
+            "publish_date": "2024 08-16",
+            "rating": "",
+            "rank": "",
+            "price": 2,
+            "type": "Fruit Liqueur"
+        },
+        {
+            "title": "Chinola Passion Fruit Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/chinola-passion-fruit-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "90",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Cointreau L’Unique",
+            "permalink": "https://bottleraiders.com/spirit/cointreau-lunique/",
+            "publish_date": "2024 06-24",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Corbin Cash Sweet Potato Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/corbin-cash-sweet-potato-liqueur/",
+            "publish_date": "2024 07-12",
+            "rating": "93",
+            "rank": "",
+            "price": 2,
+            "type": "Herbal Liqueur"
+        },
+        {
+            "title": "Cynar Ricetta Originale",
+            "permalink": "https://bottleraiders.com/spirit/cynar-ricetta-originale/",
+            "publish_date": "2024 06-25",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Disaronno Originale",
+            "permalink": "https://bottleraiders.com/spirit/disaronno-originale/",
+            "publish_date": "2024 06-24",
+            "rating": "86",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Disaronno Velvet Cream Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/disaronno-velvet-cream-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "90",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Fernet-Branca liqueur",
+            "permalink": "https://bottleraiders.com/spirit/fernet-branca-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "95",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Ferrand Yuzu Late Harvest Dry Curaçao",
+            "permalink": "https://bottleraiders.com/spirit/ferrand-yuzu-late-harvest-dry-curacao/",
+            "publish_date": "2024 06-21",
+            "rating": "95",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Fontbonne Herbal Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/fontbonne-herbal-liqueur/",
+            "publish_date": "2024 08-07",
+            "rating": "",
+            "rank": "",
+            "price": 2,
+            "type": "Herbal Liqueur"
+        },
+        {
+            "title": "Frangelico Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/frangelico-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "90",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Grand Brulot",
+            "permalink": "https://bottleraiders.com/spirit/grand-brulot/",
+            "publish_date": "2024 08-08",
+            "rating": "89",
+            "rank": "7",
+            "price": 2,
+            "type": "Coffee Liqueur"
+        },
+        {
+            "title": "Grand Marnier Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/grand-marnier-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "88",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Green Chartreuse Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/green-chartreuse-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "94",
+            "rank": "",
+            "price": 3,
+            "type": "Liqueur"
+        },
+        {
+            "title": "High Wire Distilling Southern Amaro",
+            "permalink": "https://bottleraiders.com/spirit/high-wire-southern-amaro/",
+            "publish_date": "2024 08-16",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Herbal Liqueur"
+        },
+        {
+            "title": "Hpnotiq",
+            "permalink": "https://bottleraiders.com/spirit/hpnotiq/",
+            "publish_date": "2024 06-21",
+            "rating": "81",
+            "rank": "",
+            "price": 1,
+            "type": "Fruit Liqueur"
+        },
+        {
+            "title": "Italicus Rosolio di Bergamotto Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/italicus-rosolio-di-bergamotto-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Jägermeister",
+            "permalink": "https://bottleraiders.com/spirit/jagermeister/",
+            "publish_date": "2024 08-07",
+            "rating": "80",
+            "rank": "",
+            "price": 2,
+            "type": "Herbal Liqueur"
+        },
+        {
+            "title": "Jeppson&#8217;s Malört",
+            "permalink": "https://bottleraiders.com/spirit/jeppsons-malort/",
+            "publish_date": "2024 06-21",
+            "rating": "76",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Kahlúa Coffee Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/kahlua-coffee-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "81",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Le Moné Meyer Lemon Apéritif",
+            "permalink": "https://bottleraiders.com/spirit/le-mone-meyer-lemon-aperitif/",
+            "publish_date": "2024 06-25",
+            "rating": "90",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Luxardo Maraschino Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/luxardo-maraschino-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "92",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Mr. Black Cold Brew Coffee Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/mr-black-cold-brew-coffee-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "93",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Passoã Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/passoa-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Patrón XO Cafe",
+            "permalink": "https://bottleraiders.com/spirit/patron-xo-cafe/",
+            "publish_date": "2024 08-21",
+            "rating": "83",
+            "rank": "",
+            "price": 2,
+            "type": "Coffee Liqueur"
+        },
+        {
+            "title": "Pierre Ferrand Dry Curaçao",
+            "permalink": "https://bottleraiders.com/spirit/pierre-ferrand-dry-curacao/",
+            "publish_date": "2024 06-21",
+            "rating": "94",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Pimm&#8217;s No. 1 Cup",
+            "permalink": "https://bottleraiders.com/spirit/pimms-no-1-cup/",
+            "publish_date": "2024 06-25",
+            "rating": "90",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Piñaq Rosé Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/pinaq-rose-liqueur/",
+            "publish_date": "2024 07-25",
+            "rating": "",
+            "rank": "",
+            "price": 2,
+            "type": "Fruit Liqueur"
+        },
+        {
+            "title": "Rockey&#8217;s Botanical Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/rockeys-botanical-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Rothman &#038; Winter Creme de Violette",
+            "permalink": "https://bottleraiders.com/spirit/rothman-winter-creme-de-violette/",
+            "publish_date": "2024 08-08",
+            "rating": "85",
+            "rank": "",
+            "price": 1,
+            "type": "Herbal Liqueur"
+        },
+        {
+            "title": "RumChata",
+            "permalink": "https://bottleraiders.com/spirit/rumchata/",
+            "publish_date": "2024 07-19",
+            "rating": "85",
+            "rank": "",
+            "price": 1,
+            "type": "Cream Liqueur"
+        },
+        {
+            "title": "Select Bitter Aperitivo",
+            "permalink": "https://bottleraiders.com/spirit/select-bitter-aperitivo/",
+            "publish_date": "2024 06-25",
+            "rating": "91",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Sheridan&#8217;s Coffee Layered Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/sheridans-coffee-layered-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "",
+            "rank": "",
+            "price": 1,
+            "type": "Coffee"
+        },
+        {
+            "title": "Sorel Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/sorel-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "93",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "St. George Spiced Pear Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/st-george-spirits-spiced-pear-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "St-Germain Elderflower Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/st-germain-elderflower-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "95",
+            "rank": "",
+            "price": 3,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Suze",
+            "permalink": "https://bottleraiders.com/spirit/suze/",
+            "publish_date": "2024 06-25",
+            "rating": "86",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Tequilcello",
+            "permalink": "https://bottleraiders.com/spirit/tequilcello/",
+            "publish_date": "2024 08-01",
+            "rating": "",
+            "rank": "",
+            "price": 1,
+            "type": "Fruit Liqueur"
+        },
+        {
+            "title": "Ume Plum Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/ume-plum-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "91",
+            "rank": "",
+            "price": 2,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Verino Antica Mastiha Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/verino-antica-mastiha-liqueur/",
+            "publish_date": "2024 06-25",
+            "rating": "90",
+            "rank": "",
+            "price": 1,
+            "type": "Liqueur"
+        },
+        {
+            "title": "Yellow Chartreuse Liqueur",
+            "permalink": "https://bottleraiders.com/spirit/yellow-chartreuse-liqueur/",
+            "publish_date": "2024 06-24",
+            "rating": "93",
+            "rank": "",
+            "price": 3,
+            "type": "Liqueur"
+        }
+    ]
+}
