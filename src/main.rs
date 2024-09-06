@@ -1,7 +1,9 @@
 use std::collections::HashMap;
-use std::env;
+use std::path::PathBuf;
+use std::{env, fs};
 
 use axum::handler::HandlerWithoutStateExt;
+use axum::routing::{post, put, MethodRouter};
 use axum::{routing::get, Router};
 use json_web::JWKCertificate;
 use reqwest::Client;
@@ -12,16 +14,17 @@ use tower_cookies::CookieManagerLayer;
 use tower_http::services::ServeDir;
 use tower_http::trace::TraceLayer;
 
+mod cookie;
 mod json_web;
 mod middleware;
 mod services;
-mod cookie;
 
 #[derive(Clone)]
 struct WaterOfLifeState {
     client: reqwest::Client,
     database: SqlitePool,
     oidc_configuration: OpenidConfiguration,
+    images_path: PathBuf,
     client_id: String,
     client_secret: String,
     access_token_hmac_secret: String,
@@ -63,10 +66,14 @@ async fn main() {
         .await
         .unwrap();
 
+    let images_path = PathBuf::new().join("./spirit_images");
+    fs::create_dir_all(&images_path).unwrap();
+
     let state = WaterOfLifeState {
         client,
         database,
         oidc_configuration,
+        images_path,
         client_id,
         client_secret,
         access_token_hmac_secret,
@@ -75,11 +82,19 @@ async fn main() {
     };
 
     let app = Router::new()
+        .route("/api/spirit", post(services::add_spirit))
+        .route("/api/spirit/search", get(services::search_spirit))
+        .route("/api/spirit/:id", put(services::edit_spirit))
+        .route("/api/spirit/:id/image", put(services::upload_spirit_image))
+        .route("/api/spirit/:id/image", get(services::get_spirit_image))
+        .route("/api/user_info", get(services::user_info))
+        .route_layer(axum::middleware::from_fn_with_state(
+            state.clone(),
+            middleware::authentication,
+        ))
         .route("/oidc/login", get(services::login))
         .route("/oidc/logout", get(services::logout))
         .route("/oidc/token", get(services::token))
-        .route("/api/user_info", get(services::user_info))
-        .route_layer(axum::middleware::from_fn_with_state(state.clone(), middleware::authentication))
         .layer(
             TraceLayer::new_for_http()
                 .make_span_with(middleware::create_span)

@@ -1,0 +1,12 @@
+{
+  "db_name": "SQLite",
+  "query": "INSERT INTO spirits(uuid, name, description, distiller, abv)\nVALUES ($1, $2, $3, $4, $5) ON CONFLICT(uuid) DO NOTHING;",
+  "describe": {
+    "columns": [],
+    "parameters": {
+      "Right": 5
+    },
+    "nullable": []
+  },
+  "hash": "22152a4caa03889487d3274a5a088ad8a62319723cbdc3b86c1932c57291911c"
+}

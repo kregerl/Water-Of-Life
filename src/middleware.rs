@@ -1,7 +1,7 @@
 use axum::{
     extract::{MatchedPath, Request, State},
     middleware::Next,
-    response::Response,
+    response::Response, Extension,
 };
 use reqwest::StatusCode;
 use tower_cookies::{
@@ -11,7 +11,7 @@ use tower_cookies::{
 use tower_sessions::{MemoryStore, SessionManagerLayer};
 
 use crate::{
-    json_web::{self, generate_access_and_refresh_tokens, verify_tokens, TokenState},
+    json_web::{self, generate_access_and_refresh_tokens, verify_tokens, TokenState, User},
     WaterOfLifeState,
 };
 
@@ -70,6 +70,38 @@ fn create_token_cookie<'a>(key: &'a str, token: String) -> Cookie<'a> {
     cookie.set_http_only(true);
     cookie
 }
+#[macro_export]
+macro_rules! requires_role {
+    ($role:literal, [$($endpoint:literal),*]) => {
+        axum::middleware::from_fn(|user: axum::Extension<crate::json_web::User>, request: axum::extract::Request, next: axum::middleware::Next| async move {
+            tracing::info!("Test: {:#?}", user);
+            tracing::info!("Role: {}", $role);
+            next.run(request).await
+        })
+    };
+}
+
+#[macro_export]
+macro_rules! requires_scopes {
+    ( $($scope:literal),*, [$($endpoint:literal),*]) => {
+        axum::middleware::from_fn(|user: axum::Extension<crate::json_web::User>, request: axum::extract::Request, next: axum::middleware::Next| async move {
+            tracing::info!("Test: {:#?}", user);
+            $(
+                tracing::info!("Scope: {}", $scope);
+            )*
+            next.run(request).await
+        })
+    };
+}
+
+pub async fn test(
+    Extension(user): Extension<User>,
+    mut request: Request,
+    next: Next,
+) -> Result<Response, StatusCode> {
+    tracing::info!("Test: {:#?}", user);
+    Ok(next.run(request).await)
+}
 
 pub async fn authentication(
     State(state): State<WaterOfLifeState>,
@@ -77,9 +109,10 @@ pub async fn authentication(
     mut request: Request,
     next: Next,
 ) -> Result<Response, StatusCode> {
-    if !request.uri().path().starts_with("/api") {
-        return Ok(next.run(request).await);
-    }
+    // tracing::debug!("{}", request.uri().path());
+    // if !request.uri().path().starts_with("/api") {
+    //     return Ok(next.run(request).await);
+    // }
 
     let is_token_valid = match validate_cookies(&cookies, &state).await {
         Ok(is_token_valid) => is_token_valid,
@@ -112,7 +145,7 @@ pub async fn authentication(
         .await
         .unwrap();
 
-    tracing::info!("Got user: {:#?}", user);
+    // tracing::info!("Got user: {:#?}", user);
     request.extensions_mut().insert(user);
     Ok(next.run(request).await)
 }

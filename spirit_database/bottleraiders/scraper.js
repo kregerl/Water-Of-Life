@@ -1,6 +1,6 @@
 async function getSpirits(variety) {
   let page = 1;
-  let maxPages = 2;
+  let maxPages = -1;
 
   let spirits = [];
   do {
